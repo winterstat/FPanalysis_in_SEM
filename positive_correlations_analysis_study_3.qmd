@@ -1,0 +1,1085 @@
+---
+title: "Simulation III: Positive Correlations Analysis"
+author: "Tive Khumalo (M.A),  Sonja Winter (Ph.D), Wes Bonifay (Ph.D), Brian Keller (Ph.D) & Hyejin Shim (Ph.D)"
+format: pdf
+editor: visual
+geometry: a2paper
+---
+
+```{r}
+# loading the data set
+load(here::here("Online-Supplement","Data-Files", "output_poscor_all_3.RData"))
+```
+
+- Since we have 48 models we will first assess convergence across all 48 models using a simple function that is shown below.
+
+```{r}
+# loading the tidyverse package
+library(tidyverse)
+
+# non-convergence
+non_con <- sapply(output, function(x) mean(is.na(x)))
+
+# convergence 
+con <- 1 - non_con
+
+# Grid of conditions that we can use for post-processing ----
+study3_conditions <- expand.grid(model = 1:3, 
+                                 bounds = c("none", "pos.var"),
+                                 ident = c("refmarker", "unitvar"),
+                                 mlit = c(150, 1500),
+                                 conv = c("F", "T"))
+
+# models as factors
+study3_conditions$model <- factor(study3_conditions$model)
+```
+
+```{r warning=FALSE, message=FALSE}
+# merging
+results_one <- cbind(study3_conditions, con, non_con)
+
+
+# loading the tidyverse package
+library(tidyverse)
+
+# average convergence and non-convergence
+results_one %>%
+  group_by(model) %>%
+  summarize(
+  # average convergence
+  avg_con = mean(con) * 100,
+  # average non-convergence
+  avg_non_con = mean(non_con) * 100
+  )
+```
+
+- Now we will look at the convergence rates across our conditions.
+
+```{r}
+# average convergence and non-convergence
+results_one %>%
+  group_by(model, bounds, ident, mlit, conv) %>%
+  summarize(
+  # average convergence
+  avg_con = mean(con) * 100,
+  # average non-convergence
+  avg_non_con = mean(non_con) * 100, .groups = 'keep'
+  ) %>%
+  filter(avg_con != 1.0 & avg_non_con != 0)
+```
+
+```{r cells with low convergence}
+# filter models with convergences lower or equal to 94%
+results_one |>
+  select(-non_con) |>
+  filter(con <= .94)
+
+```
+
+```{r}
+# first condition
+row_1 <- study3_conditions[1,]
+# first data frame in output
+tab_1 <- output[[1]]
+
+# merging
+tab_merged <- bind_cols(tab_1, row_1)
+```
+
+```{r}
+# number of conditions
+num_con <- nrow(study3_conditions)
+
+# number of data frames in the output
+k <- length(output)
+
+# check if the above is equal
+if(k != num_con){
+  stop('error k and num_con should be the same')
+}
+
+# container to save the results
+output_conditions <- list()
+
+for(i in 1:k){
+  output_conditions[[i]] <- bind_cols(output[[i]], study3_conditions[i,])
+  
+}
+
+
+
+# saving the dataset#
+save(output_conditions, file = here::here("Online-Supplement","Data-Files","output_poscor_3_all_conditions.RData"))
+```
+
+```{r}
+# loading the data
+load(here::here("Online-Supplement","Data-Files", "output_poscor_3_all_conditions.RData"))
+```
+
+### Fitting propensity analysis
+
+```{r}
+fitting_prop <- function(Data, fit.index = c('logl', 'cfi', 'srmr', 'rmsea'), threshold, conditions = study3_conditions){
+  
+# Number of observations
+R <- nrow(Data[[1]])  
+  
+# Container for results  
+res <- list()
+
+# Store percentage values 
+per <- list()
+
+# Storing frequencies
+freq <- list()
+  
+# Fit indices loop
+for (i in seq_along(Data)) {  
+  
+res[[i]] <- Data[[i]]
+    
+# Matching the column index for fit index
+fit.column <- which(colnames(res[[i]]) == fit.index)
+    
+if (length(fit.column) == 0) {
+ stop(paste("Column", fit.index, "not found in dataset", i))
+}
+    
+if (fit.index == "cfi") { 
+  
+# Calculate the proportion of values greater than the threshold
+  results <- rev(table(res[[i]][,fit.column] > threshold, useNA = 'always'))
+  
+}else if (fit.index %in% c('srmr','rmsea')){  
+  
+# Calculate the proportion of values less than the threshold
+  results <- rev(table(res[[i]][,fit.column] < threshold, useNA = 'always'))
+
+# log-likelihood  
+} else {
+  
+  # Calculate the proportion of values less than the threshold
+  results <- rev(table(res[[i]][,fit.column] > threshold, useNA = 'always'))
+  
+}    
+
+# Ensure "TRUE" exists in results; otherwise, assign 0
+results_true <- ifelse("TRUE" %in% names(results), results['TRUE'], 0)
+    
+# Saving the frequencies
+freq[[i]] <- results_true
+    
+# Calculate percentages and saving them
+per[[i]] <- (results_true / R) * 100
+  }
+  
+# Return the results as data frame
+dat <- data.frame('frequency' = unlist(freq), 'percentages' = unlist(per))
+
+# adding the conditions
+dat <- bind_cols(dat, conditions)
+
+# output
+return(dat)
+
+}
+```
+
+\newpage
+
+**CFI**
+
+```{r}
+# cfi > .50
+cfi_5 <- fitting_prop(Data = output_conditions, fit.index = 'cfi', threshold = .5, models = 1)
+```
+
+```{r}
+# cfi > .45
+cfi_45 <- fitting_prop(Data = output_conditions, fit.index = 'cfi', threshold = .45)
+```
+
+```{r}
+# cfi > .40
+cfi_40 <- fitting_prop(Data = output_conditions, fit.index = 'cfi', threshold = .40)
+```
+
+\newpage
+
+**SRMR**
+
+```{r}
+# srmr < .10
+srmr_10 <- fitting_prop(Data = output_conditions, fit.index = 'srmr', threshold = .10)
+```
+
+```{r}
+# srmr < .09
+srmr_09 <- fitting_prop(Data = output_conditions, fit.index = 'srmr', threshold = .09)
+```
+
+```{r}
+# srmr < .08
+srmr_08 <- fitting_prop(Data = output_conditions, fit.index = 'srmr', threshold = .08)
+```
+
+```{r}
+# srmr < .05
+srmr_05 <- fitting_prop(Data = output_conditions, fit.index = 'srmr', threshold = .05)
+```
+
+\newpage
+
+**RMSEA**
+
+```{r}
+# rmsea < .30
+rmsea_30 <- fitting_prop(Data = output_conditions, fit.index = 'rmsea', threshold = .30)
+```
+
+```{r}
+# rmsea < .27
+rmsea_27 <- fitting_prop(Data = output_conditions, fit.index = 'rmsea', threshold = .27)
+```
+
+```{r}
+# rmsea < .25
+rmsea_25 <- fitting_prop(Data = output_conditions, fit.index = 'rmsea', threshold = .25)
+```
+
+\newpage
+
+### Tables
+
+**CFI**
+
+```{r}
+# loading gt
+library(gt)
+
+# wider table
+cfi_50_wider <- cfi_5 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(cfi_50_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+cfi_50_table <- cfi_50_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+cfi_50_table
+```
+
+```{r}
+gt::gtsave(data = cfi_50_table, filename = 'cfi_50_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+cfi_45_wider <- cfi_45 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(cfi_45_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+cfi_45_table <- cfi_45_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+cfi_45_table
+```
+
+```{r}
+gt::gtsave(data = cfi_45_table, filename = 'cfi_45_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+cfi_40_wider <- cfi_40 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(cfi_40_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+cfi_40_table <- cfi_40_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+cfi_40_table
+```
+
+```{r}
+gt::gtsave(data = cfi_40_table, filename = 'cfi_40_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+srmr_10_wider <- srmr_10 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(srmr_10_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+srmr_10_table <- srmr_10_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+srmr_10_table
+```
+
+```{r}
+gt::gtsave(data = srmr_10_table, filename = 'srmr_10_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+srmr_09_wider <- srmr_09 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(srmr_09_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+srmr_09_table <- srmr_09_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+srmr_09_table
+```
+
+```{r}
+gt::gtsave(data = srmr_09_table, filename = 'srmr_09_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+srmr_08_wider <- srmr_08 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(srmr_08_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+srmr_08_table <- srmr_08_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+srmr_08_table
+```
+
+```{r}
+gt::gtsave(data = srmr_08_table, filename = 'srmr_08_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+rmsea_25_wider <- rmsea_25 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(rmsea_25_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+rmsea_25_table <- rmsea_25_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+rmsea_25_table
+```
+
+```{r}
+gt::gtsave(data = rmsea_25_table, filename = 'rmsea_25_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+rmsea_27_wider <- rmsea_27 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(rmsea_27_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+rmsea_27_table <- rmsea_27_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+rmsea_27_table
+```
+
+```{r}
+gt::gtsave(data = rmsea_27_table, filename = 'rmsea_27_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+rmsea_25_wider <- rmsea_25 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(rmsea_25_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+rmsea_25_table <- rmsea_25_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+rmsea_25_table
+```
+
+```{r}
+gt::gtsave(data = rmsea_25_table, filename = 'rmsea_25_table.docx', path="Tables")
+```
+
+```{r}
+# wider table
+rmsea_30_wider <- rmsea_30 %>%
+  select(- frequency) %>% # removing the frequency column
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = percentages, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(rmsea_30_wider)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+# table
+rmsea_30_table <- rmsea_30_wider %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+rmsea_30_table
+```
+
+```{r}
+gt::gtsave(data = rmsea_30_table, filename = 'rmsea_30_table.docx', path="Tables")
+```
+
+\newpage
+
+### Convergence Tables
+
+```{r}
+# loading the convergence table and reshape it to wide format
+convergence_table <- results_one %>%
+  group_by(model, bounds, ident, mlit, conv) %>%
+  summarize(
+  # average convergence
+  avg_con = mean(con) * 100,
+  # average non-convergence
+  avg_non_con = mean(non_con) * 100, .groups = 'keep'
+  ) %>%
+  select(- avg_non_con) %>%
+  pivot_wider(names_from = c(conv, mlit),
+  values_from = avg_con, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(convergence_table)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+convergence_table <- convergence_table %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+gt::gtsave(data = convergence_table, filename = 'convergence.docx', path="Tables")
+```
+
+### Convergence Tables no force convergence
+
+```{r}
+# loading the convergence table and reshape it to wide format
+convergence_table <- results_one %>%
+  filter(conv == 'F') %>%
+  group_by(model, bounds, ident, mlit, conv) %>%
+  summarize(
+  # average convergence
+  avg_con = mean(con) * 100,
+  # average non-convergence
+  avg_non_con = mean(non_con) * 100, .groups = 'keep'
+  ) %>%
+  select(- avg_non_con) %>%
+  pivot_wider(names_from =  mlit,
+  values_from = avg_con, names_expand = T) %>%
+  relocate(model) %>% # interchanging the first column with the model column
+  mutate(
+  ident = as.character(ident),
+  model = as.character(model), 
+  bounds = paste0('Bounds: ', bounds)
+  )
+```
+
+```{r}
+# the actual names
+actual_names <- colnames(convergence_table)
+
+# new names
+new_names <- actual_names %>%
+  str_remove('(F|T)_') %>%
+  str_to_title()
+
+names(new_names) <- actual_names
+```
+
+```{r}
+convergence_table <- convergence_table %>%
+  gt(groupname_col = 'model', rowname_col = 'ident') %>% 
+  cols_label(.list = new_names) %>%
+  tab_spanner(
+    label = md('T'),
+    columns = contains('T')
+  ) %>%
+  tab_spanner(
+    label = md('F'),
+    columns = contains('F')
+  ) %>%
+  tab_spanner(
+    label = md('Forced Convergence'),
+    columns = contains('T') | contains('F')
+  ) %>%
+  cols_align(
+    align = 'left',
+    columns = c(where(is.factor), where(is.character))
+  ) %>%
+  cols_label(
+  bounds = 'Maximum Iterations'  
+  )%>%
+  fmt_number(decimals = 3)
+```
+
+```{r}
+gt::gtsave(data = convergence_table, filename = 'convergence-no-force.docx', path="Tables")
+```
+
+\newpage
+
+### Log-likelihoods
+
+#### Fitting propensity analysis to accomodate for different models
+
+```{r}
+fitting_prop <- function(Data, fit.index = c('logl', 'cfi', 'srmr', 'rmsea'), threshold, conditions = study3_conditions,
+              models = c(1, 2, 3)){
+  
+  # Number of observations (kept as original for reference; per-iteration R computed below)
+  R <- nrow(Data[[1]])  
+  
+  # Container for results  
+  res <- list()
+  
+  # Store percentage values 
+  per <- list()
+  
+  # Storing frequencies
+  freq <- list()
+  
+  # Fit indices loop
+  for (i in seq_along(Data)) {  
+    res[[i]] <- Data[[i]]
+    
+    ## ADDED: create a working copy (df) and optionally filter by 'model' column
+    df <- res[[i]]                      # work on df (keeps original res intact)
+    if ("model" %in% colnames(df) && !is.null(models)) {
+      df <- df[df$model %in% models, , drop = FALSE]
+    }
+    
+    ## UPDATED: use the filtered-data-frame 'df' to find fit column and compute counts
+    # Matching the column index for fit index
+    fit.column <- which(colnames(df) == fit.index)
+    
+    if (length(fit.column) == 0) {
+      stop(paste("Column", fit.index, "not found in dataset", i))
+    }
+    
+    # denominator after optional filtering
+    R_i <- nrow(df)
+    
+    if (fit.index == "cfi" & models %in% c(1, 2, 3))  { 
+      
+      # Calculate the proportion of values greater than the threshold
+      results <- rev(table(df[,fit.column] > threshold, useNA = 'always'))
+      
+    } else if (fit.index %in% c('srmr','rmsea') & models %in% c(1, 2, 3)){  
+      
+      # Calculate the proportion of values less than the threshold
+      results <- rev(table(df[,fit.column] < threshold, useNA = 'always'))
+    
+    # log-likelihood  
+    } else {
+      
+      # Calculate the proportion of values less than the threshold
+      results <- rev(table(df[,fit.column] > threshold, useNA = 'always'))
+      
+    }    
+    
+    # Ensure "TRUE" exists in results; otherwise, assign 0
+    results_true <- ifelse("TRUE" %in% names(results), results['TRUE'], 0)
+    
+    # Saving the frequencies
+    freq[[i]] <- results_true
+    
+    # Calculate percentages and saving them (use R_i so it reflects filtered rows)
+    per[[i]] <- if (R_i > 0) (results_true / R_i) * 100 else 0
+  }
+  
+  # Return the results as data frame
+  dat <- data.frame('frequency' = unlist(freq), 'percentages' = unlist(per))
+  
+  # adding the conditions
+  dat <- bind_cols(dat, conditions)
+  
+  # output
+  return(dat)
+  
+}
+
+```
