@@ -96,26 +96,26 @@ results |>
 
 
 # labels on the other side of the y-axis
-gridExtra::grid.arrange(
-  plot_1,
-  right = grid::textGrob(
-    "Model",
-    rot = -90,
-    gp = grid::gpar(fontsize = 12, fontface = "bold")
-  )
-) 
+#gridExtra::grid.arrange(
+ # plot_1,
+  #right = grid::textGrob(
+   # "Model",
+    #rot = -90,
+    #gp = grid::gpar(fontsize = 12, fontface = "bold")
+  #)
+#) 
 
-png(
-  filename = here::here(
-    "Online-Supplement", "Plots", "Study Two",
-    "max-iterations-fp-study-2-condition_1-model-2.png"
-  ),
-  width = 10,
-  height = 8,
-  units = "in",
-  res = 300
-)
+#png(
+ # filename = here::here(
+  #  "Online-Supplement", "Plots", "Study Two",
+  #  "max-iterations-fp-study-2-condition_1-model-2.png"
+  #),
+  #width = 10,
+  #height = 8,
+  #units = "in",
+  #res = 300
+#)
 
-grid::grid.draw(plot_1)
+#grid::grid.draw(plot_1)
 
-dev.off()
+#dev.off()
