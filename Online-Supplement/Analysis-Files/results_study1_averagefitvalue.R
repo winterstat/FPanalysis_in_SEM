@@ -124,7 +124,7 @@ plot_1 <- avg.size.results %>%
   ggplot(aes(x = size, y = value, fill = model, linetype = model)) + stat_lineribbon(
   aes(fill_ramp = after_stat(level)), .width = 0.95, linewidth = 0.4,
   alpha = 0.9) + facet_grid(rows = vars(index), cols = vars(cor), scales = "free_y",
-  switch = "y") + labs(x = "Dataspace size", y = "Fit index",
+  switch = "y") + labs(x = "Dataspace size", y = "Fitting Propensity Estimate",
   fill = "Model", linetype = "Model", fill_ramp = 'Confidence Level') + scale_fill_manual(values = c("Model 1A" = "#276419",
   "Model 1B" = "#8e0152")) + scale_linetype_manual(values = c("Model 1A" = "solid","Model 1B" = "dashed")) + scale_x_continuous(breaks = seq(0, 1e6, 1e4),
   labels = scales::label_number(scale_cut = scales::cut_short_scale())) + scale_y_continuous(expand = expansion(mult = c(0.02, 0.02))) + geom_vline(xintercept = 1e4, color = "grey29")
