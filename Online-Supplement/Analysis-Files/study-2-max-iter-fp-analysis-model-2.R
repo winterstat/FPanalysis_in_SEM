@@ -84,7 +84,7 @@ library(ggh4x)
 results |>
   ggplot(aes(x = max_iter, y = values, color = models, linetype = models)) +
   geom_point(size = 2.5) + geom_line(linewidth = 1.35) +
-  labs(x = "Maximum Number of Iterations", y = "Fitting Propensity",
+  labs(x = "Maximum Number of Iterations", y = "Fitting Propensity Estimate",
   color = "Model") +
   scale_color_manual(name = "Model ",
   values = c("2A" = "#332288", "2B" = "#88CCEE", "2C" = "#CC6677")) + scale_linetype_manual(name = "Model ",
